@@ -1,5 +1,6 @@
 *.class
 *.log
+felix-cache
 
 # sbt specific
 dist/*
