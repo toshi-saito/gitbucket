@@ -39,6 +39,7 @@ object MyBuild extends Build {
         "org.apache.httpcomponents" % "httpclient" % "4.2.5",
         "com.typesafe.slick" %% "slick" % "1.0.1",
         "com.novell.ldap" % "jldap" % "2009-10-07",
+        "org.apache.felix" % "org.apache.felix.framework" % "4.0.2",
         "com.h2database" % "h2" % "1.3.171",
         "ch.qos.logback" % "logback-classic" % "1.0.6" % "runtime",
         "org.eclipse.jetty" % "jetty-webapp" % "8.1.8.v20121106" % "container;provided",

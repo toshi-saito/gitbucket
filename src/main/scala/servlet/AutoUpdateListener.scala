@@ -9,6 +9,9 @@ import org.slf4j.LoggerFactory
 import util.Directory._
 import util.ControlUtil._
 import org.eclipse.jgit.api.Git
+import java.util.ServiceLoader
+import org.osgi.framework.launch.{Framework, FrameworkFactory}
+import org.osgi.framework.Constants
 
 object AutoUpdate {
   
@@ -115,6 +118,33 @@ class AutoUpdateListener extends ServletContextListener {
   private val logger = LoggerFactory.getLogger(classOf[AutoUpdateListener])
   
   override def contextInitialized(event: ServletContextEvent): Unit = {
+    val factoryLoader = ServiceLoader.load(classOf[FrameworkFactory])
+    val config = new java.util.HashMap[String, String]
+
+//    val cacheDir = java.io.File.createTempFile("felix.gitbucket.extenderbased", null)
+//    FileUtils.deleteDirectory(cacheDir)
+//    config.put(Constants.FRAMEWORK_STORAGE, cacheDir.getAbsolutePath())
+
+    import scala.collection.JavaConverters._
+    val framework = factoryLoader.iterator.asScala.collectFirst { case factory =>
+      factory.newFramework(config)
+    }.get
+    framework.init
+    framework.start
+
+    event.getServletContext.setAttribute("felix", framework)
+    logger.info("Felix is started.")
+
+    // TODO install OSGi bundles
+    try {
+      val bundleContext = framework.getBundleContext
+      val bundle = bundleContext.installBundle(new java.io.File(
+        "C:\\Users\\takezoe\\Desktop\\plugins\\test_1.0.0.201310031710.jar").toURI.toURL.toString)
+      bundle.start()
+    } catch {
+      case ex: Throwable => ex.printStackTrace()
+    }
+
     org.h2.Driver.load()
     event.getServletContext.setInitParameter("db.url", s"jdbc:h2:${DatabaseHome}")
 
@@ -144,8 +174,10 @@ class AutoUpdateListener extends ServletContextListener {
     logger.debug("End schema update")
   }
 
-  def contextDestroyed(sce: ServletContextEvent): Unit = {
-    // Nothing to do.
+  def contextDestroyed(event: ServletContextEvent): Unit = {
+    val framework = event.getServletContext.getAttribute("felix").asInstanceOf[Framework]
+    framework.stop
+    logger.info("Felix is stopped.")
   }
 
   private def getConnection(servletContext: ServletContext): Connection =
