@@ -15,6 +15,7 @@ import util.Implicits._
 import service._
 import WebHookService._
 import org.eclipse.jgit.api.Git
+import util.JGitUtil.CommitInfo
 
 /**
  * Provides Git repository via HTTP.
@@ -86,50 +87,71 @@ class CommitLogHook(owner: String, repository: String, userName: String, baseURL
       commands.asScala.foreach { command =>
         val commits = JGitUtil.getCommitLog(git, command.getOldId.name, command.getNewId.name)
         val refName = command.getRefName.split("/")
-        
-        // apply issue comment
-        val newCommits = commits.flatMap { commit =>
-          if(!existsCommitId(owner, repository, commit.id)){
-            insertCommitId(owner, repository, commit.id)
-            "(^|\\W)#(\\d+)(\\W|$)".r.findAllIn(commit.fullMessage).matchData.foreach { matchData =>
-              val issueId = matchData.group(2)
-              if(getAccountByUserName(commit.committer).isDefined && getIssue(owner, repository, issueId).isDefined){
-                createComment(owner, repository, commit.committer, issueId.toInt, commit.fullMessage, "commit")
-              }
+        val branchName = refName.drop(2).mkString("/")
+
+        // Extract new commit and apply issue comment
+        val newCommits = if(commits.size > 1000){
+          val existIds = getAllCommitIds(owner, repository)
+          commits.flatMap { commit =>
+            optionIf(!existIds.contains(commit.id)){
+              createIssueComment(commit)
+              Some(commit)
             }
-            Some(commit)
-          } else None
-        }.toList
-        
+          }
+        } else {
+          commits.flatMap { commit =>
+            optionIf(!existsCommitId(owner, repository, commit.id)){
+              createIssueComment(commit)
+              Some(commit)
+            }
+          }
+        }
+
+        // batch insert all new commit id
+        insertAllCommitIds(owner, repository, newCommits.map(_.id))
+
         // record activity
         if(refName(1) == "heads"){
           command.getType match {
             case ReceiveCommand.Type.CREATE => {
-              recordCreateBranchActivity(owner, repository, userName, refName(2))
-              recordPushActivity(owner, repository, userName, refName(2), newCommits)
+              recordCreateBranchActivity(owner, repository, userName, branchName)
+              recordPushActivity(owner, repository, userName, branchName, newCommits)
             }
-            case ReceiveCommand.Type.UPDATE => recordPushActivity(owner, repository, userName, refName(2), newCommits)
+            case ReceiveCommand.Type.UPDATE => recordPushActivity(owner, repository, userName, branchName, newCommits)
             case _ =>
           }
         } else if(refName(1) == "tags"){
           command.getType match {
-            case ReceiveCommand.Type.CREATE => recordCreateTagActivity(owner, repository, userName, refName(2), newCommits)
+            case ReceiveCommand.Type.CREATE => recordCreateTagActivity(owner, repository, userName, branchName, newCommits)
             case _ =>
           }
         }
 
         // call web hook
-        val payload = WebHookPayload(
-          git,
-          command.getRefName,
-          getRepository(owner, repository, baseURL).get,
-          newCommits,
-          getAccountByUserName(owner).get)
+        val webHookURLs = getWebHookURLs(owner, repository)
+        if(webHookURLs.nonEmpty){
+          val payload = WebHookPayload(
+            git,
+            command.getRefName,
+            getRepository(owner, repository, baseURL).get,
+            newCommits,
+            getAccountByUserName(owner).get)
 
-        callWebHook(owner, repository, payload)
+          callWebHook(owner, repository, webHookURLs, payload)
+        }
       }
     }
     // update repository last modified time.
     updateLastActivityDate(owner, repository)
   }
+
+  private def createIssueComment(commit: CommitInfo) = {
+    "(^|\\W)#(\\d+)(\\W|$)".r.findAllIn(commit.fullMessage).matchData.foreach { matchData =>
+      val issueId = matchData.group(2)
+      if(getAccountByUserName(commit.committer).isDefined && getIssue(owner, repository, issueId).isDefined){
+        createComment(owner, repository, commit.committer, issueId.toInt, commit.fullMessage, "commit")
+      }
+    }
+  }
+
 }

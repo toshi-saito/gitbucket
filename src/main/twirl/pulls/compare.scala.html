@@ -11,7 +11,7 @@
   hasWritePermission: Boolean)(implicit context: app.Context)
 @import context._
 @import view.helpers._
-@html.main("Pull Requests - " + repository.owner + "/" + repository.name){
+@html.main(s"Pull Requests - ${repository.owner}/${repository.name}", Some(repository)){
   @html.header("pulls", repository)
   <div class="pullreq-info">
     <div id="compare-info">
@@ -27,7 +27,7 @@
       }
       @helper.html.dropdown(originId, "base") {
         @originRepository.branchList.map { branch =>
-          <li><a href="#" class="origin-branch" data-name="@branch">@helper.html.checkicon(branch == originId) @branch</a></li>
+          <li><a href="#" class="origin-branch" data-name="@encodeRefName(branch)">@helper.html.checkicon(branch == originId) @branch</a></li>
         }
       }
       ...
@@ -38,7 +38,7 @@
       }
       @helper.html.dropdown(forkedId, "compare") {
         @forkedRepository.branchList.map { branch =>
-          <li><a href="#" class="forked-branch" data-name="@branch">@helper.html.checkicon(branch == forkedId) @branch</a></li>
+          <li><a href="#" class="forked-branch" data-name="@encodeRefName(branch)">@helper.html.checkicon(branch == forkedId) @branch</a></li>
         }
       }
     </div>

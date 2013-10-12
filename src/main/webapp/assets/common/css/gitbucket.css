@@ -256,10 +256,6 @@ hr {
   margin-bottom: 4px;
 }
 
-span.note {
-  margin-left: 20px;
-}
-
 img.avatar {
   border-radius: 4px;
   -webkit-border-radius: 4px;
@@ -300,6 +296,13 @@ ul.dropdown-menu :last-child {
 
 span.highlight {
   background-color: #ffff88;
+}
+
+/****************************************************************************/
+/* Create Repo */
+/****************************************************************************/
+.slash {
+  font-size: 20px;
 }
 
 /****************************************************************************/
@@ -453,6 +456,10 @@ pre.blob {
   border: none;
   background-color: white;
   padding-left: 20px;
+}
+
+#readme .box-content {
+  padding: 30px;
 }
 
 /****************************************************************************/

@@ -31,6 +31,12 @@
           @userRepositories.map { repository =>
             <tr>
               <td>
+                @if(repository.repository.isPrivate){
+                  <i class="icon-lock"></i>
+                }
+                @if(!repository.repository.isPrivate){
+                  <i class="icon-eye-open"></i>
+                }
                 @if(repository.owner == loginAccount.get.userName){
                   <a href="@url(repository)"><span class="strong">@repository.name</span></a>
                 } else {
@@ -57,6 +63,12 @@
         @recentRepositories.map { repository =>
           <tr>
             <td>
+              @if(repository.repository.isPrivate){
+              <i class="icon-lock"></i>
+              }
+              @if(!repository.repository.isPrivate){
+              <i class="icon-eye-open"></i>
+              }
               <a href="@url(repository)">@repository.owner/<span class="strong">@repository.name</span></a>
             </td>
           </tr>

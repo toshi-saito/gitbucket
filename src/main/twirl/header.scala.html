@@ -1,17 +1,24 @@
 @(active: String, repository: service.RepositoryService.RepositoryInfo)(implicit context: app.Context)
 @import context._
 @import view.helpers._
-<div class="pull-right">
-  <div class="input-prepend">
-    <a href="@path/@repository.owner/@repository.name/fork" class="btn" style="margin-bottom: 10px;">Fork</a>
-    <span class="add-on"><a href="@url(repository)/network/members">@repository.forkedCount</a></span>
+
+@if(repository.commitCount > 0){
+  <div class="pull-right">
+    <div class="input-prepend">
+      <a href="@path/@repository.owner/@repository.name/fork" class="btn" style="margin-bottom: 10px;">Fork</a>
+      <span class="add-on"><a href="@url(repository)/network/members">@repository.forkedCount</a></span>
+    </div>
   </div>
-</div>
+}
 <div class="head">
-  <a href="@url(repository.owner)">@repository.owner</a> / <a href="@url(repository)" class="strong">@repository.name</a>
   @if(repository.repository.isPrivate){
-    <i class="icon-lock"></i>
+      <i class="icon-lock"></i>
   }
+  @if(!repository.repository.isPrivate){
+      <i class="icon-eye-open"></i>
+  }
+  <a href="@url(repository.owner)">@repository.owner</a> / <a href="@url(repository)" class="strong">@repository.name</a>
+  
   @defining(repository.repository){ x =>
     @if(repository.repository.originRepositoryName.isDefined){
       <div class="forked">
