@@ -36,8 +36,7 @@ object Directory {
   /**
    * Substance directory of the repository.
    */
-  def getRepositoryDir(owner: String, repository: String): File =
-    new File(s"${RepositoryHome}/${owner}/${repository}.git")
+  def getRepositoryDir(owner: String, repository: String): File = new File(s"${RepositoryHome}/${owner}/${repository}.git")
 
   /**
    * Directory for uploaded files by the specified user.
@@ -47,14 +46,12 @@ object Directory {
   /**
    * Root of temporary directories for the specified repository.
    */
-  def getTemporaryDir(owner: String, repository: String): File =
-    new File(s"${GitBucketHome}/tmp/${owner}/${repository}")
+  def getTemporaryDir(owner: String, repository: String): File = new File(s"${GitBucketHome}/tmp/${owner}/${repository}")
 
   /**
    * Temporary directory which is used to create an archive to download repository contents.
    */
-  def getDownloadWorkDir(owner: String, repository: String, sessionId: String): File = 
-    new File(getTemporaryDir(owner, repository), s"download/${sessionId}")
+  def getDownloadWorkDir(owner: String, repository: String, sessionId: String): File =  new File(getTemporaryDir(owner, repository), s"download/${sessionId}")
   
   /**
    * Temporary directory which is used in the repository creation.
@@ -62,19 +59,21 @@ object Directory {
    * GitBucket generates initial repository contents in this directory and push them.
    * This directory is removed after the repository creation.
    */
-  def getInitRepositoryDir(owner: String, repository: String): File =
-    new File(getTemporaryDir(owner, repository), "init")
+  def getInitRepositoryDir(owner: String, repository: String): File = new File(getTemporaryDir(owner, repository), "init")
   
   /**
    * Substance directory of the wiki repository.
    */
-  def getWikiRepositoryDir(owner: String, repository: String): File =
-    new File(s"${RepositoryHome}/${owner}/${repository}.wiki.git")
+  def getWikiRepositoryDir(owner: String, repository: String): File = new File(s"${RepositoryHome}/${owner}/${repository}.wiki.git")
   
   /**
    * Wiki working directory which is cloned from the wiki repository.
    */
-  def getWikiWorkDir(owner: String, repository: String): File =
-    new File(getTemporaryDir(owner, repository), "wiki")
+  def getWikiWorkDir(owner: String, repository: String): File = new File(getTemporaryDir(owner, repository), "wiki")
+
+  /**
+   * Directory which extension OSGi bundles are placed.
+   */
+  def getExtensionsDir(): File = new File(s"${GitBucketHome}/extensions")
 
 }

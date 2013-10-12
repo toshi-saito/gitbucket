@@ -4,6 +4,8 @@ import javax.servlet.ServletContextEvent
 import org.slf4j.LoggerFactory
 import java.util.ServiceLoader
 import org.osgi.framework.launch.{Framework, FrameworkFactory}
+import util.Directory._
+import java.io.{File, FileFilter}
 
 object ExtensionManager {
 
@@ -20,22 +22,29 @@ object ExtensionManager {
     framework.init
     framework.start
 
-    event.getServletContext.setAttribute("felix", framework)
+    event.getServletContext.setAttribute(classOf[Framework].getName, framework)
     logger.info("Felix is started.")
 
-    // TODO install OSGi bundles
-    try {
-      val bundleContext = framework.getBundleContext
-      val bundle = bundleContext.installBundle(new java.io.File(
-        "C:\\Users\\takezoe\\Desktop\\plugins\\test_1.0.0.201310031710.jar").toURI.toURL.toString)
-      bundle.start()
-    } catch {
-      case ex: Throwable => ex.printStackTrace()
+    // Install OSGi bundles
+    val bundleContext = framework.getBundleContext
+    val dir = getExtensionsDir()
+    if(dir.exists()){
+      dir.listFiles(new FileFilter {
+        def accept(file: File): Boolean = file.getName.endsWith(".jar")
+      }).foreach { file =>
+        logger.info(s"Installing ${file.getName}...")
+        try {
+          val bundle = bundleContext.installBundle(file.toURI.toURL.toString)
+          bundle.start()
+        } catch {
+          case ex: Throwable => logger.error(s"Failed to install ${file.getName}.", ex)
+        }
+      }
     }
   }
 
   def shutdown(event: ServletContextEvent): Unit = {
-    val framework = event.getServletContext.getAttribute("felix").asInstanceOf[Framework]
+    val framework = event.getServletContext.getAttribute(classOf[Framework].getName).asInstanceOf[Framework]
     framework.stop
     logger.info("Felix is stopped.")
   }
