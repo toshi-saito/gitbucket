@@ -1,4 +1,5 @@
 import app._
+import extension.ExtensionController
 import org.scalatra._
 import javax.servlet._
 
@@ -7,6 +8,7 @@ class ScalatraBootstrap extends LifeCycle {
     context.mount(new IndexController, "/")
     context.mount(new SearchController, "/")
     context.mount(new FileUploadController, "/upload")
+    context.mount(new ExtensionController, "/extension")
     context.mount(new SignInController, "/*")
     context.mount(new DashboardController, "/*")
     context.mount(new UserManagementController, "/*")
