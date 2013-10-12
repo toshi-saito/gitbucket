@@ -12,6 +12,7 @@ import org.eclipse.jgit.api.Git
 import java.util.ServiceLoader
 import org.osgi.framework.launch.{Framework, FrameworkFactory}
 import org.osgi.framework.Constants
+import extension.ExtensionManager
 
 object AutoUpdate {
   
@@ -105,8 +106,7 @@ object AutoUpdate {
     } else {
       Version(0, 0)
     }
-    
-  }  
+  }
   
 }
 
@@ -118,49 +118,22 @@ class AutoUpdateListener extends ServletContextListener {
   private val logger = LoggerFactory.getLogger(classOf[AutoUpdateListener])
   
   override def contextInitialized(event: ServletContextEvent): Unit = {
-    val factoryLoader = ServiceLoader.load(classOf[FrameworkFactory])
-    val config = new java.util.HashMap[String, String]
-
-//    val cacheDir = java.io.File.createTempFile("felix.gitbucket.extenderbased", null)
-//    FileUtils.deleteDirectory(cacheDir)
-//    config.put(Constants.FRAMEWORK_STORAGE, cacheDir.getAbsolutePath())
-
-    import scala.collection.JavaConverters._
-    val framework = factoryLoader.iterator.asScala.collectFirst { case factory =>
-      factory.newFramework(config)
-    }.get
-    framework.init
-    framework.start
-
-    event.getServletContext.setAttribute("felix", framework)
-    logger.info("Felix is started.")
-
-    // TODO install OSGi bundles
-    try {
-      val bundleContext = framework.getBundleContext
-      val bundle = bundleContext.installBundle(new java.io.File(
-        "C:\\Users\\takezoe\\Desktop\\plugins\\test_1.0.0.201310031710.jar").toURI.toURL.toString)
-      bundle.start()
-    } catch {
-      case ex: Throwable => ex.printStackTrace()
-    }
-
     org.h2.Driver.load()
     event.getServletContext.setInitParameter("db.url", s"jdbc:h2:${DatabaseHome}")
 
-    logger.debug("Start schema update")
+    logger.info("Start schema updating")
     defining(getConnection(event.getServletContext)){ conn =>
       try {
         defining(getCurrentVersion()){ currentVersion =>
           if(currentVersion == headVersion){
-            logger.debug("No update")
+            logger.info("No update")
           } else if(!versions.contains(currentVersion)){
             logger.warn(s"Skip migration because ${currentVersion.versionString} is illegal version.")
           } else {
             versions.takeWhile(_ != currentVersion).reverse.foreach(_.update(conn))
             FileUtils.writeStringToFile(versionFile, headVersion.versionString, "UTF-8")
             conn.commit()
-            logger.debug(s"Updated from ${currentVersion.versionString} to ${headVersion.versionString}")
+            logger.info(s"Updated from ${currentVersion.versionString} to ${headVersion.versionString}")
           }
         }
       } catch {
@@ -171,13 +144,13 @@ class AutoUpdateListener extends ServletContextListener {
         }
       }
     }
-    logger.debug("End schema update")
+    logger.info("End schema updating")
+
+    ExtensionManager.start(event)
   }
 
   def contextDestroyed(event: ServletContextEvent): Unit = {
-    val framework = event.getServletContext.getAttribute("felix").asInstanceOf[Framework]
-    framework.stop
-    logger.info("Felix is stopped.")
+    ExtensionManager.shutdown(event)
   }
 
   private def getConnection(servletContext: ServletContext): Connection =
