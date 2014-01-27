@@ -13,13 +13,16 @@ import java.util.ResourceBundle
 
 class WikiController extends WikiControllerBase 
   with WikiService with RepositoryService with AccountService with ActivityService
-  with CollaboratorsAuthenticator with ReferrerAuthenticator
+  with CollaboratorsAuthenticator with ReferrerAuthenticator with FileUploadControllerBase
 
 trait WikiControllerBase extends ControllerBase with FlashMapSupport {
   self: WikiService with RepositoryService with ActivityService
-    with CollaboratorsAuthenticator with ReferrerAuthenticator =>
+    with CollaboratorsAuthenticator with ReferrerAuthenticator
+    with FileUploadControllerBase =>
 
   case class WikiPageEditForm(pageName: String, content: String, message: Option[String], currentPageName: String, id: String)
+  
+  case class WikiPageUploadForm(fileId: Option[String])
   
   val newForm = mapping(
     "pageName"        -> trim(label("Page name"         , text(required, maxlength(40), pagename, unique))),
@@ -36,6 +39,17 @@ trait WikiControllerBase extends ControllerBase with FlashMapSupport {
     "currentPageName" -> trim(label("Current page name" , text(required))),
     "id"              -> trim(label("Latest commit id"  , text(required)))
   )(WikiPageEditForm.apply)
+  
+  val uploadForm = mapping(
+    "fileId"        -> trim(label("File"             , optional(text())))
+  )(WikiPageUploadForm.apply)
+  
+  protected def upload(owner: String, repository: String, pageName: String, committer: model.Account, fileId: Option[String]): Unit =
+    fileId.map { fileId =>
+      val filename = getUploadedFilename(fileId).get
+      val file = getTemporaryFile(fileId)
+      storeAttachmentFile(owner, repository, pageName, committer, filename, FileUtil.getBytes(file))
+    }
   
   get("/:owner/:repository/wiki")(referrersOnly { repository =>
     getWikiPage(repository.owner, repository.name, "Home").map { page =>
@@ -59,6 +73,26 @@ trait WikiControllerBase extends ControllerBase with FlashMapSupport {
         case Right((logs, hasNext)) => wiki.html.history(Some(pageName), logs, repository)
         case Left(_) => NotFound
       }
+    }
+  })
+  
+  get("/:owner/:repository/wiki/:page/_download/:file")(referrersOnly { repository =>
+    val pageName = StringUtil.urlDecode(params("page"))
+    val file = StringUtil.urlDecode(params("file"))
+    getWikiPageAttachment(repository.owner, repository.name, pageName, file).map { bytes => 
+      val contentType = FileUtil.getContentType(file, bytes)
+      bytes
+    } getOrElse {
+      NotFound
+    }
+  })
+  
+  post("/:owner/:repository/wiki/:page/_upload", uploadForm)(collaboratorsOnly { (form, repository) =>
+	defining(context.loginAccount.get){ loginAccount =>
+      val pageName = StringUtil.urlDecode(params("page"))
+      upload(repository.owner, repository.name, pageName, loginAccount, form.fileId)
+      updateLastActivityDate(repository.owner, repository.name)
+      redirect(s"/${repository.owner}/${repository.name}/wiki/${StringUtil.urlEncode(pageName)}")
     }
   })
   
@@ -131,7 +165,7 @@ trait WikiControllerBase extends ControllerBase with FlashMapSupport {
 
       updateLastActivityDate(repository.owner, repository.name)
       recordCreateWikiPageActivity(repository.owner, repository.name, loginAccount.userName, form.pageName)
-
+      
       redirect(s"/${repository.owner}/${repository.name}/wiki/${StringUtil.urlEncode(form.pageName)}")
     }
   })
@@ -201,7 +235,7 @@ trait WikiControllerBase extends ControllerBase with FlashMapSupport {
       }
     }
   }
-
+  
   private def targetWikiPage = getWikiPage(params("owner"), params("repository"), params("pageName"))
 
 }

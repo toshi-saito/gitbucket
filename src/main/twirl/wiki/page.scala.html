@@ -24,6 +24,17 @@
   <div class="markdown-body">
     @markdown(page.content, repository, true, false)
   </div>
+  @if(!page.attachments.isEmpty) {
+  <h4>Attachments</h4>
+  <ul>
+  @page.attachments.map { file =>
+      <li><a href="@url(repository)/wiki/@urlEncode(pageName)/_download/@urlEncode(file)">@file</a></li>
+    }
+  </ul>
+  }
+  
+  @helper.html.uploadfile(s"${url(repository)}/wiki/${urlEncode(pageName)}/_upload")
+
   <div class="small">
     <span class="muted">Last edited by @page.committer at @datetime(page.time)</span>
   </div>

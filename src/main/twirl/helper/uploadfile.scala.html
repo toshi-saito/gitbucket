@@ -1,0 +1,35 @@
+@(post: String)(implicit context: app.Context)
+@import context._
+<div id="clickable">Select Attachment File</div>
+</div>
+<form method="post" id="uploadForm" action="@post">
+  <input type="hidden" name="fileId" value=""/>
+</form>
+<script>
+$(function(){
+  var dropzone = new Dropzone('div#clickable', {
+    url: '@path/upload/file'
+  });
+
+  dropzone.on("success", function(file, id){
+    $('div#clickable').remove();
+    $('input[name=fileId]').val(id);
+    $('#uploadForm').submit();
+  });
+});
+</script>
+
+<style type="text/css">
+div.dz-filename, div.dz-size, div.dz-progress, div.dz-success-mark, div.dz-error-mark, div.dz-error-message {
+  display: none;
+}
+
+div#clickable {
+  width: 100%;
+  text-align: center;
+  height: 60px;
+  line-height: 60px;
+  border: 1px dashed silver;
+  background-color: #f8f8f8;
+}
+</style>

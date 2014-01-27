@@ -14,6 +14,8 @@ import java.io.ByteArrayInputStream
 import org.eclipse.jgit.patch._
 import org.eclipse.jgit.api.errors.PatchFormatException
 import scala.collection.JavaConverters._
+import org.scalatra.servlet.FileItem
+import util.Keys
 
 
 object WikiService {
@@ -27,7 +29,7 @@ object WikiService {
    * @param time the last modified time
    * @param id the latest commit id
    */
-  case class WikiPageInfo(name: String, content: String, committer: String, time: Date, id: String)
+  case class WikiPageInfo(name: String, content: String, committer: String, time: Date, id: String, attachments: List[String])
   
   /**
    * The model for wiki page history.
@@ -38,7 +40,6 @@ object WikiService {
    * @param date the commit date
    */
   case class WikiPageHistoryInfo(name: String, committer: String, message: String, date: Date)
-
 }
 
 trait WikiService {
@@ -61,9 +62,52 @@ trait WikiService {
     using(Git.open(Directory.getWikiRepositoryDir(owner, repository))){ git =>
       if(!JGitUtil.isEmpty(git)){
         JGitUtil.getFileList(git, "master", ".").find(_.name == pageName + ".md").map { file =>
-          WikiPageInfo(file.name, new String(git.getRepository.open(file.id).getBytes, "UTF-8"), file.committer, file.time, file.commitId)
+          WikiPageInfo(file.name, new String(git.getRepository.open(file.id).getBytes, "UTF-8"), file.committer, file.time, file.commitId,
+              JGitUtil.getFileList(git, "master", Keys.Wiki.AttachemntFileDir(pageName)).map {file => file.name})
         }
       } else None
+    }
+  }
+  
+  def getWikiPageAttachment(owner: String, repository: String, pageName: String, fileName: String): Option[Array[Byte]] = {
+    getFileContent(owner, repository, Keys.Wiki.AttachemntFile(pageName, fileName))
+  }
+  
+  def storeAttachmentFile(owner: String, repository: String, pageName: String, committer: model.Account, filename: String, bytes: Array[Byte]): Option[String] = {
+	LockUtil.lock(s"${owner}/${repository}/wiki"){
+      using(Git.open(Directory.getWikiRepositoryDir(owner, repository))){ git =>
+        val builder  = DirCache.newInCore.builder()
+        val inserter = git.getRepository.newObjectInserter()
+        val headId   = git.getRepository.resolve(Constants.HEAD + "^{commit}")
+        val filepath = Keys.Wiki.AttachemntFile(pageName, filename);
+        var update = false;
+        
+        using(new RevWalk(git.getRepository)){ revWalk =>
+          using(new TreeWalk(git.getRepository)){ treeWalk =>
+            val index = treeWalk.addTree(revWalk.parseTree(headId))
+            treeWalk.setRecursive(true)
+            while(treeWalk.next){
+              val path = treeWalk.getPathString
+              val tree = treeWalk.getTree(index, classOf[CanonicalTreeParser])
+              if (filepath == path) {
+                update = true;
+              } else {
+            	builder.add(JGitUtil.createDirCacheEntry(path, tree.getEntryFileMode, tree.getEntryObjectId))
+              }
+            }
+          }
+        }
+        
+        builder.add(JGitUtil.createDirCacheEntry(filepath, FileMode.REGULAR_FILE, inserter.insert(Constants.OBJ_BLOB, bytes)))
+        builder.finish()
+        val newHeadId = JGitUtil.createNewCommit(git, inserter, headId, builder.getDirCache.writeTree(inserter), committer.fullName, committer.mailAddress,
+          if (update) {
+            s"Update Attachment ${filename} for ${pageName}"
+          } else {
+            s"Add Attachment ${filename} for ${pageName}"
+          })
+        Some(newHeadId)
+      }
     }
   }
 
@@ -229,7 +273,12 @@ trait WikiService {
                 if(path == currentPageName + ".md" && currentPageName != newPageName){
                   removed = true
                 } else if(path != newPageName + ".md"){
-                  builder.add(JGitUtil.createDirCacheEntry(path, tree.getEntryFileMode, tree.getEntryObjectId))
+                  if (currentPageName != "" && path.startsWith(Keys.Wiki.AttachemntFileDir(currentPageName)+"/")) {
+                    builder.add(JGitUtil.createDirCacheEntry(Keys.Wiki.AttachemntReplaceDir(path, currentPageName, newPageName), tree.getEntryFileMode, 
+                        inserter.insert(Constants.OBJ_BLOB, JGitUtil.getContent(git, tree.getEntryObjectId(), true).get)))
+                  } else {
+                    builder.add(JGitUtil.createDirCacheEntry(path, tree.getEntryFileMode, tree.getEntryObjectId))
+                  }
                 } else {
                   created = false
                   updated = JGitUtil.getContent(git, tree.getEntryObjectId, true).map(new String(_, "UTF-8") != content).getOrElse(false)
@@ -280,7 +329,7 @@ trait WikiService {
               while(treeWalk.next){
                 val path = treeWalk.getPathString
                 val tree = treeWalk.getTree(index, classOf[CanonicalTreeParser])
-                if(path != pageName + ".md"){
+                if(path != pageName + ".md" && !path.startsWith(Keys.Wiki.AttachemntFileDir(pageName)+"/")){
                   builder.add(JGitUtil.createDirCacheEntry(path, tree.getEntryFileMode, tree.getEntryObjectId))
                 } else {
                   removed = true

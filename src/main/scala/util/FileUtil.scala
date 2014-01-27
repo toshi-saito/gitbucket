@@ -4,6 +4,7 @@ import org.apache.commons.io.FileUtils
 import java.net.URLConnection
 import java.io.File
 import util.ControlUtil._
+import scala.io.Source
 
 object FileUtil {
   
@@ -69,4 +70,7 @@ object FileUtil {
       FileUtils.deleteDirectory(dir)
     }
   }
+  
+  def getBytes(file: File) : Array[Byte] = 
+    FileUtils.readFileToByteArray(file);
 }

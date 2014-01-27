@@ -68,5 +68,14 @@ object Keys {
     def Cache(key: String) = s"cache.${key}"
 
   }
+  
+  object Wiki {
+    val Attachments = "Attachments"
+    def AttachemntFileDir(pageName:String) = s"${Attachments}/${pageName}"
+    def AttachemntFile(pageName:String, fileName:String) = AttachemntFileDir(pageName)+s"/${fileName}"
+    def AttachemntReplaceDir(filePath: String, currentPageName:String, newPageName:String) = {
+      AttachemntFileDir(newPageName)+filePath.substring(AttachemntFileDir(currentPageName).length)
+    }
+  }
 
 }
