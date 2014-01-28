@@ -1,0 +1,49 @@
+@(post: String)(implicit context: app.Context)
+@import context._
+
+<div id="colors">
+</div>
+<canvas id="drawImage" width="600" height="500"></canvas>
+<a id="drawImageSubmit" class="btn btn-success" style="float:right;">Submit</a>
+<form method="post" id="uploadForm" action="@post">
+  <input type="hidden" name="fileId" value=""/>
+</form>
+<script>
+$(function() {
+	$.each(['#f00', '#ff0', '#0f0', '#0ff', '#00f', '#f0f', '#000', '#fff'], function() {
+    $('#colors').append("<a href='#drawImage' data-color='" + this + "' style='width: 10px; background: " + this + ";'></a> ");
+  });
+  $.each([3, 5, 10, 15], function() {
+    $('#colors').append("<a href='#drawImage' data-size='" + this + "' style='background: #ccc'>" + this + "</a> ");
+  });
+	$('#drawImage').sketch();
+
+	$("#drawImageSubmit").click(function() {
+	  var canvas = document.getElementById('drawImage');
+		$.post("@path/upload/canvas", {
+		  data: canvas.toDataURL()
+		}, function(res) {
+		  $('input[name=fileId]').val(res);
+      $('#uploadForm').submit();
+		}, "text");
+	});
+});
+</script>
+
+<style type="text/css">
+#drawImage {
+  border: 1px solid silver;
+}
+#colors a {
+  display: inline-block;
+  border: 1px solid black;
+  height: 30px;
+  padding: 0 10px;
+  line-height: 30px;
+  vertical-align: middle;
+  text-align: center;
+  text-decoration: none;
+	color: black;
+	font-weight: bold;
+}
+</style>

@@ -53,6 +53,11 @@
           @helper.html.uploadfile(s"${url(repository)}/issues/${issue.issueId}/_upload")
           </div>
         </div>
+        <div class="span10 offset1">
+          <div style="margin:20px 0 20px 0;">
+          @helper.html.drawimage(s"${url(repository)}/issues/${issue.issueId}/_upload")
+          </div>
+        </div>
       </div>
     </div>
     <div class="span2">

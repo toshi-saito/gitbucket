@@ -5,6 +5,8 @@ import util.ControlUtil._
 import org.scalatra._
 import org.scalatra.servlet.{MultipartConfig, FileUploadSupport}
 import org.apache.commons.io.FileUtils
+import org.eclipse.jgit.util.Base64
+import java.util.Date
 
 /**
  * Provides Ajax based file upload functionality.
@@ -37,5 +39,16 @@ class FileUploadController extends ScalatraServlet
       }
       case None => BadRequest
     }
+  }
+  
+  post("/canvas") {
+    val data = params("data").replaceAll("^data:.*?;base64,(.*)$", "$1")
+    if (data != "") {
+      defining(generateFileId){ fileId =>
+        FileUtils.writeByteArrayToFile(getTemporaryFile(fileId), Base64.decode(data));
+        session += Keys.Session.Upload(fileId) -> "%tY-%<tm-%<td_%<tH-%<tM-%<tS.png".format(new Date)
+        Ok(fileId)
+      }
+    } else BadRequest
   }
 }

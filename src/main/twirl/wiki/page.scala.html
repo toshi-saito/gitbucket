@@ -47,6 +47,10 @@
   }
   
   @helper.html.uploadfile(s"${url(repository)}/wiki/${urlEncode(pageName)}/_upload")
+  
+  <div style="margin:20px 0 0 0;">
+  @helper.html.drawimage(s"${url(repository)}/wiki/${urlEncode(pageName)}/_upload")
+  </div>
 
   <div class="small">
     <span class="muted">Last edited by @page.committer at @datetime(page.time)</span>
