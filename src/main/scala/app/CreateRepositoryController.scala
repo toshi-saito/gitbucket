@@ -12,14 +12,14 @@ import org.scalatra.i18n.Messages
 
 class CreateRepositoryController extends CreateRepositoryControllerBase
   with RepositoryService with AccountService with WikiService with LabelsService with ActivityService
-  with UsersAuthenticator with ReadableUsersAuthenticator
+  with IssuesService with UsersAuthenticator with ReadableUsersAuthenticator
 
 /**
  * Creates new repository.
  */
 trait CreateRepositoryControllerBase extends ControllerBase {
   self: RepositoryService with AccountService with WikiService with LabelsService with ActivityService
-    with UsersAuthenticator with ReadableUsersAuthenticator =>
+    with IssuesService with UsersAuthenticator with ReadableUsersAuthenticator =>
 
   case class RepositoryCreationForm(owner: String, name: String, description: Option[String], isPrivate: Boolean, createReadme: Boolean)
 
@@ -98,6 +98,9 @@ trait CreateRepositoryControllerBase extends ControllerBase {
 
         // Create Wiki repository
         createWikiRepository(loginAccount, form.owner, form.name)
+        
+        // Create Issue repository
+        createIssueRepository(loginAccount, form.owner, form.name)
 
         // Record activity
         recordCreateRepositoryActivity(form.owner, form.name, loginUserName)

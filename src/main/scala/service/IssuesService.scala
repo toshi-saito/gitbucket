@@ -4,10 +4,19 @@ import scala.slick.driver.H2Driver.simple._
 import Database.threadLocalSession
 import scala.slick.jdbc.{StaticQuery => Q}
 import Q.interpolation
-
 import model._
 import util.Implicits._
 import util.StringUtil._
+import util.LockUtil
+import _root_.util.ControlUtil._
+import org.eclipse.jgit.api.Git
+import util.{PatchUtil, Directory, JGitUtil, LockUtil}
+import org.eclipse.jgit.dircache.DirCache
+import util.Keys
+import org.eclipse.jgit.treewalk.{TreeWalk, CanonicalTreeParser}
+import org.eclipse.jgit.revwalk.RevWalk
+import org.eclipse.jgit.lib.FileMode
+import org.eclipse.jgit.lib._
 
 trait IssuesService {
   import IssuesService._
@@ -314,6 +323,66 @@ trait IssuesService {
     }.toList
   }
 
+  def createIssueRepository(loginAccount: model.Account, owner: String, repository: String): Unit =
+    LockUtil.lock(s"${owner}/${repository}/issue"){
+      defining(Directory.getIssueFileRepositoryDir(owner, repository)){ dir =>
+        if(!dir.exists){
+          JGitUtil.initRepository(dir)
+        }
+      }
+    }
+
+  def getIssueAttachments(owner: String, repository: String, issueId: Int) : List[String] = 
+    using(Git.open(Directory.getIssueFileRepositoryDir(owner, repository))){ git =>
+      if(!JGitUtil.isEmpty(git)){
+        JGitUtil.getFileList(git, "master", Keys.Issue.AttachemntFileDir(issueId)).map {file => file.name}
+      } else Nil;
+    }
+
+  def getIssueAttachment(owner: String, repository: String, issueId: Int, fileName: String): Option[Array[Byte]] =
+    using(Git.open(Directory.getIssueFileRepositoryDir(owner, repository))){ git =>
+      if(!JGitUtil.isEmpty(git)){
+        val dir = Keys.Issue.AttachemntFileDir(issueId);
+        JGitUtil.getFileList(git, "master", dir).find(_.name == fileName).map { file =>
+          git.getRepository.open(file.id).getBytes
+        }
+      } else None
+    }
+
+  def storeAttachmentFile(owner: String, repository: String, issueId: Int, committer: model.Account, filename: String, bytes: Array[Byte]): Option[String] = {
+	LockUtil.lock(s"${owner}/${repository}/issue"){
+	  using(Git.open(Directory.getIssueFileRepositoryDir(owner, repository))){ git =>
+	  	val builder  = DirCache.newInCore.builder()
+        val inserter = git.getRepository.newObjectInserter()
+        val headId   = git.getRepository.resolve(Constants.HEAD + "^{commit}")
+        val filepath = Keys.Issue.AttachemntFile(issueId, filename);
+
+	  	if (headId != null) {
+          using(new RevWalk(git.getRepository)){ revWalk =>
+            using(new TreeWalk(git.getRepository)){ treeWalk =>
+              val index = treeWalk.addTree(revWalk.parseTree(headId))
+              treeWalk.setRecursive(true)
+              while(treeWalk.next){
+                val path = treeWalk.getPathString
+                val tree = treeWalk.getTree(index, classOf[CanonicalTreeParser])
+                if (filepath != path) {
+            	  builder.add(JGitUtil.createDirCacheEntry(path, tree.getEntryFileMode, tree.getEntryObjectId))
+                }
+              }
+            }
+          }
+        }
+        
+        builder.add(JGitUtil.createDirCacheEntry(filepath, FileMode.REGULAR_FILE, inserter.insert(Constants.OBJ_BLOB, bytes)))
+        builder.finish()
+        val newHeadId = JGitUtil.createNewCommit(git, inserter, headId, builder.getDirCache.writeTree(inserter), committer.fullName, committer.mailAddress,
+            s"Add Attachment ${filename} for Issue:#${issueId}"
+          )
+        createComment(owner, repository, committer.userName, issueId, s"Add Attachment ${filename}", "attachment")
+        Some(newHeadId)
+	  }
+	}
+  }
 }
 
 object IssuesService {

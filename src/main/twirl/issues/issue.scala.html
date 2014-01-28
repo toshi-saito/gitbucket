@@ -5,7 +5,9 @@
   milestones: List[(model.Milestone, Int, Int)],
   labels: List[model.Label],
   hasWritePermission: Boolean,
-  repository: service.RepositoryService.RepositoryInfo)(implicit context: app.Context)
+  repository: service.RepositoryService.RepositoryInfo,
+  attachments: List[String]
+  )(implicit context: app.Context)
 @import context._
 @import view.helpers._
 @html.main(s"${issue.title} - Issue #${issue.issueId} - ${repository.owner}/${repository.name}", Some(repository)){
@@ -18,8 +20,40 @@
   <div class="row-fluid">
     <div class="span10">
       @issuedetail(issue, comments, collaborators, milestones, hasWritePermission, repository)
+      @if(attachments) {
+      <div class="row-fluid">
+        <div class="span11 offset1">
+          <h6>Attachments:</h6>
+          <ul>
+          @attachments.map { file =>
+            <li>
+              <a href="@url(repository)/issues/@issue.issueId/_download/@urlEncode(file)">@file</a>
+              @if(isImage(file)) {
+                &nbsp;&nbsp;(<a class="fancybox" href="@url(repository)/issues/@issue.issueId/_download/@urlEncode(file)">Show</a>)
+              }
+            </li>
+          }
+          </ul>
+        </div>
+      </div>
+      <script type="text/javascript">
+      $(function() {
+        $(".fancybox").fancybox({
+          openEffect : 'elastic',
+          closeEffect : 'elastic'
+        });
+      });
+      </script>
+      }
       @commentlist(issue, comments, hasWritePermission, repository)
       @commentform(issue, hasWritePermission, repository)
+      <div class="row-flued">
+        <div class="span10 offset1">
+          <div style="margin:20px 0 20px 0;">
+          @helper.html.uploadfile(s"${url(repository)}/issues/${issue.issueId}/_upload")
+          </div>
+        </div>
+      </div>
     </div>
     <div class="span2">
       @if(issue.closed) {

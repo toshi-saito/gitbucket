@@ -1,27 +1,29 @@
 package app
 
 import jp.sf.amateras.scalatra.forms._
-
 import service._
 import IssuesService._
 import util.{CollaboratorsAuthenticator, ReferrerAuthenticator, ReadableUsersAuthenticator, Notifier, Keys}
 import util.Implicits._
 import util.ControlUtil._
 import org.scalatra.Ok
+import util.FileUtil
+import util.StringUtil
 
 class IssuesController extends IssuesControllerBase
   with IssuesService with RepositoryService with AccountService with LabelsService with MilestonesService with ActivityService
-  with ReadableUsersAuthenticator with ReferrerAuthenticator with CollaboratorsAuthenticator
+  with ReadableUsersAuthenticator with ReferrerAuthenticator with CollaboratorsAuthenticator with FileUploadControllerBase
 
 trait IssuesControllerBase extends ControllerBase {
   self: IssuesService with RepositoryService with AccountService with LabelsService with MilestonesService with ActivityService
-    with ReadableUsersAuthenticator with ReferrerAuthenticator with CollaboratorsAuthenticator =>
+    with ReadableUsersAuthenticator with ReferrerAuthenticator with CollaboratorsAuthenticator with FileUploadControllerBase =>
 
   case class IssueCreateForm(title: String, content: Option[String],
     assignedUserName: Option[String], milestoneId: Option[Int], labelNames: Option[String])
   case class IssueEditForm(title: String, content: Option[String])
   case class CommentForm(issueId: Int, content: String)
   case class IssueStateForm(issueId: Int, content: Option[String])
+  case class IssuePageUploadForm(fileId: Option[String])
 
   val issueCreateForm = mapping(
       "title"            -> trim(label("Title", text(required))),
@@ -46,6 +48,17 @@ trait IssuesControllerBase extends ControllerBase {
       "content" -> trim(optional(text()))
     )(IssueStateForm.apply)
 
+  val uploadForm = mapping(
+    "fileId"        -> trim(label("File" , optional(text())))
+  )(IssuePageUploadForm.apply)
+  
+  protected def upload(owner: String, repository: String, issueId: Int, committer: model.Account, fileId: Option[String]): Unit =
+    fileId.map { fileId =>
+      val filename = getUploadedFilename(fileId).get
+      val file = getTemporaryFile(fileId)
+      storeAttachmentFile(owner, repository, issueId, committer, filename, FileUtil.getBytes(file))
+    }
+  
   get("/:owner/:repository/issues")(referrersOnly {
     searchIssues("all", _)
   })
@@ -69,11 +82,33 @@ trait IssuesControllerBase extends ControllerBase {
           getMilestonesWithIssueCount(owner, name),
           getLabels(owner, name),
           hasWritePermission(owner, name, context.loginAccount),
-          repository)
+          repository,
+          getIssueAttachments(owner, name, issueId.toInt))
       } getOrElse NotFound
     }
   })
+  
+  get("/:owner/:repository/issues/:id/_download/:file")(referrersOnly { repository =>
+    val file = StringUtil.urlDecode(params("file"))
+    getIssueAttachment(repository.owner, repository.name, params("id").toInt, file).map { bytes => 
+      val contentType = FileUtil.getContentType(file, bytes)
+      bytes
+    } getOrElse {
+      NotFound
+    }
+  })
 
+  
+  post("/:owner/:repository/issues/:id/_upload", uploadForm)(collaboratorsOnly { (form, repository) =>
+    defining(context.loginAccount.get){ loginAccount =>
+      defining(params("id").toInt){ issueId =>
+        upload(repository.owner, repository.name, issueId, loginAccount, form.fileId)
+        updateLastActivityDate(repository.owner, repository.name)
+        redirect(s"/${repository.owner}/${repository.name}/issues/${issueId}")
+      }
+    }
+  })
+  
   get("/:owner/:repository/issues/new")(readableUsersOnly { repository =>
     defining(repository.owner, repository.name){ case (owner, name) =>
       issues.html.create(
@@ -262,7 +297,7 @@ trait IssuesControllerBase extends ControllerBase {
       }
     }
   })
-
+  
   val assignedUserName = (key: String) => params.get(key) filter (_.trim != "")
   val milestoneId: String => Option[Int] = (key: String) => params.get(key).flatMap(_.toIntOpt)
 

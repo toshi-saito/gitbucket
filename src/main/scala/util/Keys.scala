@@ -77,5 +77,10 @@ object Keys {
       AttachemntFileDir(newPageName)+filePath.substring(AttachemntFileDir(currentPageName).length)
     }
   }
+  
+  object Issue {
+    def AttachemntFile(issueId:Int, fileName:String) = AttachemntFileDir(issueId)+s"/${fileName}"
+    def AttachemntFileDir(issueId:Int) = s"${issueId}"
+  }
 
 }

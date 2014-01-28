@@ -142,5 +142,7 @@ object helpers extends AvatarImageProvider with LinkConverter with RequestCache 
     def mkHtml(separator: String) = Html(seq.mkString(separator))
     def mkHtml(separator: scala.xml.Elem) = Html(seq.mkString(separator.toString))
   }
-
+  
+  def isImage(file: String): Boolean = 
+    file.matches(".*\\.(jpe?g|gif|png)")
 }

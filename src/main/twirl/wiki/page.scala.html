@@ -28,9 +28,22 @@
   <h4>Attachments</h4>
   <ul>
   @page.attachments.map { file =>
-      <li><a href="@url(repository)/wiki/@urlEncode(pageName)/_download/@urlEncode(file)">@file</a></li>
+    <li>
+    <a href="@url(repository)/wiki/@urlEncode(pageName)/_download/@urlEncode(file)">@file</a>
+    @if(isImage(file)) {
+      &nbsp;&nbsp;(<a class="fancybox" href="@url(repository)/wiki/@urlEncode(pageName)/_download/@urlEncode(file)">Show</a>)
     }
+    </li>
+  }
   </ul>
+  <script type="text/javascript">
+    $(function() {
+      $(".fancybox").fancybox({
+    		openEffect : 'elastic',
+    	  closeEffect : 'elastic'
+      });
+    });
+  </script>
   }
   
   @helper.html.uploadfile(s"${url(repository)}/wiki/${urlEncode(pageName)}/_upload")

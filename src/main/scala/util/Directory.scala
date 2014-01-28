@@ -76,5 +76,8 @@ object Directory {
    */
   def getWikiRepositoryDir(owner: String, repository: String): File =
     new File(s"${RepositoryHome}/${owner}/${repository}.wiki.git")
+  
+  def getIssueFileRepositoryDir(owner: String, repository: String): File =
+    new File(s"${RepositoryHome}/${owner}/${repository}.issue.git")
 
 }

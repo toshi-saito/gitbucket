@@ -27,6 +27,7 @@ trait Notifier extends RepositoryService with AccountService with IssuesService 
     )
     .distinct
     .withFilter ( _ != context.loginAccount.get.userName )	// the operation in person is excluded
+    .withFilter ( _ == issue.assignedUserName) // assigined user only.
     .foreach ( getAccountByUserName(_) filterNot (_.isGroupAccount) foreach (x => notify(x.mailAddress)) )
 
 }
