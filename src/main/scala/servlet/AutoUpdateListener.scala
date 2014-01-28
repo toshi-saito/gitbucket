@@ -53,19 +53,16 @@ object AutoUpdate extends AccountService with IssuesService {
    * The history of versions. A head of this sequence is the current BitBucket version.
    */
   val versions = Seq(
-/*    new Version(2, 0){
+    new Version(2, 0){
       override def update(conn: Connection): Unit = {
         super.update(conn)
-        using(conn.createStatement.executeQuery("SELECT PARENT_USER_NAME, USER_NAME, REPOSITORY_NAME FROM REPOSITORY")){ rs =>
+        using(conn.createStatement.executeQuery("SELECT USER_NAME, REPOSITORY_NAME FROM REPOSITORY")){ rs =>
           while(rs.next){
-            getAccountByUserName(rs.getString("PARENT_USER_NAME")).collect {
-              case account => createIssueRepository(account, rs.getString("USER_NAME"), rs.getString("REPOSITORY_NAME"))
-            }
+            createIssueRepository(null, rs.getString("USER_NAME"), rs.getString("REPOSITORY_NAME"))
           }
         }
       }
     },
-    */
     Version(1, 9),
     Version(1, 8),
     Version(1, 7),
